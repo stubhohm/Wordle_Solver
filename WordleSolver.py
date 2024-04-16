@@ -1,5 +1,10 @@
 import time
 import random
+
+MAX_GUESSES = 6
+bot_on = False
+make_txts = True
+
 word_list_path:str = 'WordleList.txt'
 perfect_match_path:str = 'After_Perfect_Matches.txt'
 black_list_path:str = 'After_Black_Lists.txt'
@@ -16,6 +21,14 @@ colors = {
         'yellow': '\033[43m',  # Yellow background
         'reset': '\033[0m'  # Reset color and attributes
     }
+response_options:list[list[int]] = []
+for i in range(3):
+    for j in range(3):
+        for k in range(3):
+            for l in range(3):
+                for m in range(3):
+                    option = [i,j,k,l,m]
+                    response_options.append(option)
 
 def start_clock():
     return time.time()
@@ -38,6 +51,35 @@ def pick_wordle_word(word_list:list[str]):
     rand_int = random.randrange(list_size)
     word = word_list[rand_int]
     return word
+
+def calculate_most_effective_option(viable_words:list[str], letter_lists):
+    start = start_clock()
+    least_choices = len(viable_words)*len(response_options)
+    test_choices = 0
+    best_words = []
+    for i, word in enumerate(viable_words):
+        total_choices = 0
+        for option in response_options:
+            test_words = viable_words.copy()
+            test_choices = test_guess(word, option, letter_lists, test_words)
+            total_choices += test_choices
+
+        print(f"word{word}, tot: {total_choices}, lc: {least_choices}")
+        if i % 100 == 0:
+            print(f'At #{i}. word: {word}')
+            print(least_choices)
+            print(best_words)
+            print(len(viable_words))
+        if total_choices < least_choices:
+            best_words = [word]
+            least_choices = total_choices
+        if total_choices == least_choices:
+            best_words.append(word)
+    word_picks = len(best_words)
+    rand_num = random.randrange(word_picks)
+    best_word = best_words[rand_num]        
+    end_clock('Most Effective option', start)
+    return best_word
 
 def calculate_letter_frequency(viable_words:list[str], initial_weight):
     '''
@@ -134,7 +176,7 @@ def remove_by_blacklist_letters(black_list:list[str], viable_words:list[str]):
         if not kick:
             filtered_list.append(word)
     #print(f'Current Words after filtering for black list letters: {len(filtered_list)}')
-    end_clock('Removing Blacklisted Letters', start)
+    #end_clock('Removing Blacklisted Letters', start)
     push_to_txt(black_list_kick_path, kick_list)
     return filtered_list
 
@@ -170,8 +212,8 @@ def remove_by_near_miss(near_miss_list:list[list[str, list[int]]], viable_words:
         if kick:
             continue
         filtered_list.append(word)
-    print(f'Current Words after filtering for near misses: {len(filtered_list)}')
-    end_clock('Remove Near Misses', start)
+    #print(f'Current Words after filtering for near misses: {len(filtered_list)}')
+    #end_clock('Remove Near Misses', start)
     push_to_txt(near_miss_kick_path, kick_list)
     return filtered_list
 
@@ -198,8 +240,8 @@ def filter_by_perfect_match(perfect_match_list:list[list[str, list[int]]], viabl
         if kick:
             continue   
         filtered_list.append(word)
-    print(f'Current Words after filtering for known placement: {len(filtered_list)}')
-    end_clock('Allow known placement', start)
+   # print(f'Current Words after filtering for known placement: {len(filtered_list)}')
+    #end_clock('Allow known placement', start)
     push_to_txt(perfect_match_kick_path, kick_list)
     return filtered_list                 
 
@@ -248,6 +290,26 @@ def get_guess(valid_input:list[str]):
         print(word)
     return word
 
+def test_guess(test_word:str, test_score:list[int], letter_lists:list, viable_words:list[str]):
+    test_black = letter_lists[0].copy()
+    test_near_miss = letter_lists[1].copy()
+    test_perfect = letter_lists[2].copy()
+
+    for i, value in enumerate(test_score):
+        if value == 0:
+            test_black = add_to_black_list(test_black, test_word[i])
+
+        if value == 1:
+            test_near_miss = add_to_positional_list(test_near_miss, test_word[i], i)
+
+        if value == 2:
+            test_perfect = add_to_positional_list(test_perfect, test_word[i], i)
+    viable_words = remove_by_blacklist_letters(test_black, viable_words)
+    viable_words = filter_by_perfect_match(test_perfect, viable_words)
+    viable_words = remove_by_near_miss(test_near_miss, viable_words)
+    remaining = len(viable_words)
+    return remaining
+
 def evaluate_guess(best_word:str, actual_word:str, letter_lists:list):
     start = start_clock()
     values = [0,0,0,0,0]
@@ -265,7 +327,6 @@ def evaluate_guess(best_word:str, actual_word:str, letter_lists:list):
             #print('adding to perfect matches')
             values[letter_index] = 2
             letter_lists[2] = add_to_positional_list(letter_lists[2], best_word[letter_index], letter_index)
-                 
     end_clock('Evaluating Word', start)
     '''
     print(f'Black List {letter_lists[0]}')
@@ -290,8 +351,8 @@ def display_word_score(word:str, word_score:list[int]):
 def push_to_txt(path:str, words:list[str]):
     # If you change toggle to true, you will make updated doc lists of viable words.
     # If you change toggle to false, you will disable this feature.
-    toggle = False
-    if not toggle:
+
+    if not make_txts:
         return
     string = '\n'.join(words)
     with open(path, 'w') as file:
@@ -320,17 +381,24 @@ def main():
         
         # With the frequency dict, we pick the word that has the highest frequency letters
         best_word = pick_best_word(viable_words, frequncy_dict)
-        
+        #discovery_word = 'Too long to calculate for now'
+        '''
+        if len(viable_words) <2500:
+            discovery_word = calculate_most_effective_option(viable_words, letter_lists)
         # Show both for testing purposes
-        '''print(f'Black List {letter_lists[0]}')
+        print(f'Black List {letter_lists[0]}')
         print(f'near misses {letter_lists[1]}')
         print(f'Perfect matches {letter_lists[2]}')
+        '''
+        print(f'The actual word is {wordle_word}')
         
-        print(f'The actual word is {wordle_word}')'''
-        
-        print(f'\nThe program suggests the word: {best_word}')
+        print(f'\nThe program suggests the word by frequency: {best_word}')
+        #print(f'\nThe program suggests the word by discovery: {discovery_word}')
         # Ask the user for their guess, evaluate and score it
-        guessed_word = best_word#get_guess(full_wordle_list)
+        if bot_on:
+            guessed_word = best_word
+        else:
+            guessed_word = get_guess(full_wordle_list)
 
         letter_lists, word_score = evaluate_guess(guessed_word, wordle_word, letter_lists)
         display_word_score(guessed_word, word_score)
@@ -345,13 +413,13 @@ def main():
         push_to_txt(near_miss_path, viable_words)
 
         guesses += 1
-        if guesses > 6:
+        if guesses > MAX_GUESSES:
             playing = False
 
         if guessed_word == wordle_word:
             playing = False
     win = False
-    if guesses > 6:
+    if guesses > MAX_GUESSES:
         print('You Lost')
         return guesses, win
     if wordle_word == guessed_word:
@@ -374,7 +442,7 @@ def show_stats(ratio:list[int,bool], loops: int):
 
 if __name__ == '__main__':
     print('starting program')
-    loops = 200
+    loops = 50
     loop = 0
     ratio:list[int,bool] = []
     start = start_clock()
@@ -384,6 +452,8 @@ if __name__ == '__main__':
         outcome = [guesses, win]
         ratio.append(outcome)
         loop += 1
+        if not bot_on:
+            break
         print(f'Completed game {loop + 1}')
     show_stats(ratio, loops)
     end_clock('Total Runtime', start)
