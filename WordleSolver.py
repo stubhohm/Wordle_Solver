@@ -2,7 +2,12 @@ import time
 import random
 
 MAX_GUESSES = 6
-bot_on = False
+bot_on = True
+bot_loops = 1000
+# This is how many remaining words before we switch guessing algos
+# 1000 Seems to be the sweet spot
+word_cap = 1000
+
 make_txts = True
 
 word_list_path:str = 'WordleList.txt'
@@ -30,13 +35,18 @@ for i in range(3):
                     option = [i,j,k,l,m]
                     response_options.append(option)
 
+def bot_print(print_input):
+    if bot_on:
+        return
+    print(print_input)
+
 def start_clock():
     return time.time()
 
 def end_clock(clock_name:str, start_time:float):
     end_time = time.time()
     elapsed_time = end_time - start_time
-    print(f"\nElapsed time for {clock_name} Function: {elapsed_time} seconds")
+    bot_print(f"\nElapsed time for {clock_name} Function: {elapsed_time} seconds")
 
 def import_base_wordle_list(path:str):
     start = start_clock()
@@ -64,12 +74,12 @@ def calculate_most_effective_option(viable_words:list[str], letter_lists):
             test_choices = test_guess(word, option, letter_lists, test_words)
             total_choices += test_choices
 
-        print(f"word{word}, tot: {total_choices}, lc: {least_choices}")
+        bot_print(f"word{word}, tot: {total_choices}, lc: {least_choices}")
         if i % 100 == 0:
-            print(f'At #{i}. word: {word}')
-            print(least_choices)
-            print(best_words)
-            print(len(viable_words))
+           bot_print(f'At #{i}. word: {word}')
+           bot_print(least_choices)
+           bot_print(best_words)
+           bot_print(len(viable_words))
         if total_choices < least_choices:
             best_words = [word]
             least_choices = total_choices
@@ -156,8 +166,38 @@ def pick_best_word(viable_words:list[str], frequency_dict:dict):
     random_int = random.randrange(0,viable_word_count)
     best_word = best_words[random_int]
     end_clock('Picking Best Word', start)
-    #print(f'Best words {best_words}')
+    bot_print(f'Best words {best_words}')
     return best_word
+
+def max_letter_elimination(full_list, word_list, perfect_matches, black_list, frequency_dict):
+    '''
+    We look at all words in the bulk list, then we pick the word with the best value
+    when the perfect letters are given a value of 0
+    '''
+    for letter in alphabet:
+        avg = int(sum(frequency_dict[letter])/5)
+        frequency_dict[letter] = [avg,avg,avg,avg,avg]
+        present = False
+        for word in word_list:
+            if letter in word:
+                present = True
+                continue
+        if not present:
+            frequency_dict[letter] = [0,0,0,0,0]            
+    for entry in black_list:
+        try:
+            letter = entry[0]
+        except IndexError:
+            continue
+        frequency_dict[letter] = [0,0,0,0,0]
+    for entry in perfect_matches:
+        try:
+            letter = entry[0]
+        except IndexError:
+            continue
+        frequency_dict[letter] = [0,0,0,0,0]
+    bot_print(frequency_dict)
+    return pick_best_word(full_list, frequency_dict)
 
 def remove_by_blacklist_letters(black_list:list[str], viable_words:list[str]):
     start = start_clock()
@@ -175,7 +215,7 @@ def remove_by_blacklist_letters(black_list:list[str], viable_words:list[str]):
                 break
         if not kick:
             filtered_list.append(word)
-    #print(f'Current Words after filtering for black list letters: {len(filtered_list)}')
+    bot_print(f'Current Words after filtering for black list letters: {len(filtered_list)}')
     #end_clock('Removing Blacklisted Letters', start)
     push_to_txt(black_list_kick_path, kick_list)
     return filtered_list
@@ -184,9 +224,9 @@ def remove_by_near_miss(near_miss_list:list[list[str, list[int]]], viable_words:
     start = start_clock()
     filtered_list:list[str] = []
     kick_list:list[str] = []
-    #print(f'near miss {near_miss_list}')
+    bot_print(f'near miss {near_miss_list}')
     if not near_miss_list:
-        print('skipping near misses')
+        bot_print('skipping near misses')
         return viable_words
     
     for word in viable_words:
@@ -212,7 +252,7 @@ def remove_by_near_miss(near_miss_list:list[list[str, list[int]]], viable_words:
         if kick:
             continue
         filtered_list.append(word)
-    #print(f'Current Words after filtering for near misses: {len(filtered_list)}')
+    bot_print(f'Current Words after filtering for near misses: {len(filtered_list)}')
     #end_clock('Remove Near Misses', start)
     push_to_txt(near_miss_kick_path, kick_list)
     return filtered_list
@@ -221,7 +261,7 @@ def filter_by_perfect_match(perfect_match_list:list[list[str, list[int]]], viabl
     start = start_clock()
     filtered_list:list[str] = []
     kick_list:list[str] = []
-    #print(f'perfect match {perfect_match_list}')
+    bot_print(f'perfect match {perfect_match_list}')
     if perfect_match_list[0][0] == '':
         return viable_words
     for word in viable_words:
@@ -240,7 +280,7 @@ def filter_by_perfect_match(perfect_match_list:list[list[str, list[int]]], viabl
         if kick:
             continue   
         filtered_list.append(word)
-   # print(f'Current Words after filtering for known placement: {len(filtered_list)}')
+    #print(f'Current Words after filtering for known placement: {len(filtered_list)}')
     #end_clock('Allow known placement', start)
     push_to_txt(perfect_match_kick_path, kick_list)
     return filtered_list                 
@@ -256,13 +296,9 @@ def add_to_black_list(black_list:list, letter:str):
     return black_list
 
 def add_to_positional_list(positional_list:list, letter:str, index:int):
-    #print(f'Positional List {positional_list}')
-    #print(f'letter:{letter}, index: {index}')
     if positional_list[0] == ['', [0]]:
-        #print('Filling in first time')
         new_entry = [letter,[index]]
         positional_list[0] = new_entry
-        #print(positional_list)
         return positional_list
     for i, entry in enumerate(positional_list):
         entry_letter = entry[0]
@@ -270,7 +306,6 @@ def add_to_positional_list(positional_list:list, letter:str, index:int):
         if letter == entry_letter:
             if index == entry_indexes or index in entry_indexes:
                 return positional_list
-            #print(f'entry indexs {entry_indexes}')
             entry_indexes.append(index)
             return positional_list
     new_entry = [letter,[index]]
@@ -282,12 +317,12 @@ def get_guess(valid_input:list[str]):
     prompt = f'Guess a {word_len} letter word: '
     word = input(prompt)
     word.strip()
-    print(word)
+    bot_print(word)
     while not word in valid_input:
-        print('You must put in a valid five letter word.\nPlease try again')
+        bot_print('You must put in a valid five letter word.\nPlease try again')
         word = input(prompt)
         word.strip()
-        print(word)
+        bot_print(word)
     return word
 
 def test_guess(test_word:str, test_score:list[int], letter_lists:list, viable_words:list[str]):
@@ -319,12 +354,12 @@ def evaluate_guess(best_word:str, actual_word:str, letter_lists:list):
         elif not best_word[letter_index] == actual_word[letter_index]:
             values[letter_index] = 1
             # Update the near miss list
-            #print('adding to near misses')
+            bot_print('adding to near misses')
             letter_lists[1] = add_to_positional_list(letter_lists[1], best_word[letter_index], letter_index)
             
         else:
             # Update the perfect match list
-            #print('adding to perfect matches')
+            bot_print('adding to perfect matches')
             values[letter_index] = 2
             letter_lists[2] = add_to_positional_list(letter_lists[2], best_word[letter_index], letter_index)
     end_clock('Evaluating Word', start)
@@ -344,14 +379,16 @@ def display_word_score(word:str, word_score:list[int]):
             color_code = colors['yellow']
         elif score == 2:
             color_code = colors['green']
-        print(f"{color_code}{char}{colors['reset']}", end='')
-    print('\n')
+        if not bot_on:
+            print(f"{color_code}{char}{colors['reset']}", end='')
+    bot_print('\n')
     end_clock('Display Score', start)
 
 def push_to_txt(path:str, words:list[str]):
     # If you change toggle to true, you will make updated doc lists of viable words.
     # If you change toggle to false, you will disable this feature.
-
+    if bot_on:
+        return
     if not make_txts:
         return
     string = '\n'.join(words)
@@ -366,7 +403,7 @@ def init_lists():
     return [black_list, near_miss_list, perfect_match_list]
 
 def main():
-    print('starting game')
+    bot_print('starting game')
     viable_words = import_base_wordle_list(word_list_path)
     full_wordle_list = import_base_wordle_list(word_list_path)
     letter_lists = init_lists()
@@ -380,7 +417,12 @@ def main():
         frequncy_dict = calculate_letter_frequency(viable_words, initial_frequency_dict)
         
         # With the frequency dict, we pick the word that has the highest frequency letters
-        best_word = pick_best_word(viable_words, frequncy_dict)
+        
+        if 2 < len(viable_words) < word_cap:
+            best_word = max_letter_elimination(full_wordle_list, viable_words, letter_lists[2], letter_lists[0], frequncy_dict)
+            #best_word = pick_best_word(viable_words, frequncy_dict)
+        else:    
+            best_word = pick_best_word(viable_words, frequncy_dict)
         #discovery_word = 'Too long to calculate for now'
         '''
         if len(viable_words) <2500:
@@ -390,10 +432,10 @@ def main():
         print(f'near misses {letter_lists[1]}')
         print(f'Perfect matches {letter_lists[2]}')
         '''
-        print(f'The actual word is {wordle_word}')
+        bot_print(f'The actual word is {wordle_word}')
         
-        print(f'\nThe program suggests the word by frequency: {best_word}')
-        #print(f'\nThe program suggests the word by discovery: {discovery_word}')
+        bot_print(f'\nThe program suggests the word by frequency: {best_word}')
+        #bot_print(f'\nThe program suggests the word by discovery: {discovery_word}')
         # Ask the user for their guess, evaluate and score it
         if bot_on:
             guessed_word = best_word
@@ -420,14 +462,14 @@ def main():
             playing = False
     win = False
     if guesses > MAX_GUESSES:
-        print('You Lost')
-        return guesses, win
+        bot_print('You Lost')
+        return guesses, win, wordle_word
     if wordle_word == guessed_word:
-        print(f'You won in {guesses} guesses')
+        bot_print(f'You won in {guesses} guesses')
         win = True
-    return guesses, win
+    return guesses, win, wordle_word
 
-def show_stats(ratio:list[int,bool], loops: int):
+def show_stats(ratio:list[int,bool], loops: int, missed_words:list[str]):
     guesses:int = 0
     wins:int = 0
     for game in ratio:
@@ -436,26 +478,29 @@ def show_stats(ratio:list[int,bool], loops: int):
             continue
         guesses += game[0]
         wins += 1
-    guess_avg = round(guesses/loops, 3)
-    win_rate = round((wins/loops)*100, 3)
+    guess_avg = round(guesses/(loops), 3)
+    win_rate = round((wins/(loops))*100, 3)
     print(f'After playing {loops} games. The bot had a winrate of {win_rate}%, with a total average guesses on winning games of {guess_avg}')
+    #print(f'The missed words were:{missed_words}.')
 
 if __name__ == '__main__':
     print('starting program')
-    loops = 50
+    loops = bot_loops
     loop = 0
     ratio:list[int,bool] = []
     start = start_clock()
     # Loops For testing speed and acuracy
+    missed_words = []
     while loop < loops:
-        guesses, win = main()
+        guesses, win, word = main()
         outcome = [guesses, win]
         ratio.append(outcome)
         loop += 1
+        if not win:
+            missed_words.append(word)
         if not bot_on:
             break
         print(f'Completed game {loop + 1}')
-    show_stats(ratio, loops)
+    if bot_on:
+        show_stats(ratio, loops, missed_words)
     end_clock('Total Runtime', start)
-    
-        
