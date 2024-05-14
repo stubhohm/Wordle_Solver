@@ -1,11 +1,12 @@
 import math
-import multiprocessing
-from WordleSolver import import_base_wordle_list, init_lists
-from WordleSolver import start_clock, end_clock, bot_print
-from WordleSolver import remove_by_blacklist_letters, remove_by_near_miss, remove_by_perfect_match
-from WordleSolver import push_to_txt
+import random
+from general_funcitons import import_base_wordle_list
+from general_funcitons import start_clock, end_clock, bot_print
+from general_funcitons import push_to_txt, push_to_json
+from general_funcitons import bot_on, debug, make_files
 
 word_list_path:str = 'WordleList.txt'
+stop_word = 'zymic'
 
 # define response options
 response_options:list[list[int]] = []
@@ -18,82 +19,93 @@ for i in range(3):
                     response_options.append(option)
 total_responses = len(response_options)
 
-def letter_list(word:str, response:list[int]):
-    lists = init_lists()
-    black_list, near_miss_list, white_list = lists[0], lists[1], lists[2]
-    for i, letter_score in enumerate(response):
-        entry = [word[i], [i]]
-        if letter_score == 0:
-            list = black_list
-            entry = word[i]
-        elif letter_score == 1:
-            list = near_miss_list
-        else: 
-            list = white_list
-        if list[0] == '':
-            list[0] = entry
-            continue
-        elif list[0][0] == '':
-            list[0] = entry
-        else:
-            list.append(entry)
-    return black_list, white_list, near_miss_list
-
-def find_option_bit_value(response:list[int], word:str, list_size:int, word_list:list[str]):
-    word_list_copy = list(word_list)
-    black_list, white_list, near_miss_list = letter_list(word, response)
-    word_list_copy = remove_by_blacklist_letters(black_list, word_list_copy)
-    word_list_copy = remove_by_near_miss(near_miss_list, word_list_copy)
-    word_list_copy = remove_by_perfect_match(white_list, word_list_copy)
-    end_size = len(word_list_copy)
-    if end_size == 0:
-        return 0
-    p = end_size / list_size
-    bits = math.log2(1/p) * p
-    return bits
-
-def find_list_bit_value(set, viable_words:list[str]):
+def find_list_bit_value(viable_words:list[str], list_dict:dict ):
     list_size = len(viable_words)
-    words_w_bits = []
-    for i, word in enumerate(set):
-        bit_sum = 0
-        for response in response_options:
-            bits = find_option_bit_value(response, word, list_size, viable_words)
-            bit_sum += bits
-        entry = [word, bit_sum]
-        words_w_bits.append(entry)
-        if i % 10 == 0 and i > 0: 
-            print(f'Word #{i}')
-    return words_w_bits
+    bits_dict = {}
+    for word in viable_words:
+        word_bits = {}
+        word_dict = list_dict[word]
+        total_bits = 0
+        for key in word_dict.keys():
+            count = word_dict[key]
+            p = count / list_size
+            bits = -math.log2(p) * p
+            total_bits += bits
+        bits_dict[word] = total_bits
+        if word == stop_word:
+            print('broke')
+            break
+    return bits_dict
+   
+def find_list_scores(viable_words:list[str], full_list:list[str]):
+    ''' 
+    This gives the number of words that have any given score
+    This is faster than filtering the list down and is simply
+    We basically hash the list with the current word and bucket
+    based on the guess as a hashing algo key and the target as the 
+    hashing algo input.
+    '''
+    start = start_clock()
+    giant_dict = {}
+    for guess_word in full_list:
+        dict = {}
+        for target_word in viable_words:
+            score = score_guess(guess_word, target_word)
+            try:
+                value = dict[score]
+            except KeyError:
+                dict[score] = 1
+                continue
+            value += 1
+            dict[score] = value
+        giant_dict[guess_word] = dict
+        if guess_word == stop_word:
+            print('broke')
+            break
+    end_clock('hashing words', start)
+    return giant_dict
 
-def process_set(set:list[str], viable_words:list[str]):
-    list_bits = find_list_bit_value(set, viable_words)
-    return list_bits
+def score_guess(guess:str, target:str):
+    word_score = ['0', '0', '0', '0', '0']
+    guess_copy = list(guess)
+    target_copy = list(target)
+    for i, g_letter in enumerate(guess_copy):
+        for j, t_letter in enumerate(target_copy):
+            if g_letter == t_letter:
+                if i == j:
+                    word_score[i] = '2'
+                else:
+                    word_score[i] = '1'
+                target_copy[j] = '*'
+                guess_copy[i] = '*'
+                break
+        word_str = ''.join(word_score)
+    return word_str
 
-def split_sets(viable_words:list[str]):
-    splits = 12
-    set_size = len(viable_words) // splits
-    sets = []
-    for i in range(0,splits):
-        start = i * set_size
-        end = start + set_size
-        if end > len(viable_words):
-            end  = len(viable_words)
-        set = viable_words[start:end]
-        sets.append(set)
-    return sets
+def pick_best_word(bit_dict:dict):
+    max_v = 0
+    best_word = ''
+    for word in bit_dict.keys():
+        value = bit_dict[word]
+        if value > max_v:
+            max_v = value
+            best_word = word
+    return best_word
+
+def run_info_theory(viable_words, full_list):
+    list_scores = find_list_scores(viable_words, full_list)
+    bits_dict = find_list_bit_value(viable_words, list_scores)
+    list_scores = None
+    word = pick_best_word(bits_dict)
+    return word
 
 def main():
     viable_words = import_base_wordle_list(word_list_path)
-    sets = split_sets(viable_words)
-    find_list_bit_value(viable_words, viable_words)
-    '''
-    start = start_clock()
-    with multiprocessing.Pool() as pool:
-        processed_sets = pool.starmap(process_set, [(data_set, viable_words) for data_set in sets])
-    end_clock("total process time", start)
-    push_to_txt('list_with_bits', processed_sets)
-    '''
-    
+    list_scores = find_list_scores(viable_words, viable_words)
+    bits_dict = find_list_bit_value(viable_words, list_scores)
+    list_scores = None
+    word = pick_best_word(bits_dict)
+    print(word)
+    push_to_json('bits_scores', bits_dict)
 if __name__ == '__main__':
     main()
