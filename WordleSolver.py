@@ -216,7 +216,7 @@ def remove_by_blacklist_letters(black_list:list[str], viable_words:list[str]):
         if not kick:
             filtered_list.append(word)
     bot_print(f'Current Words after filtering for black list letters: {len(filtered_list)}')
-    #end_clock('Removing Blacklisted Letters', start)
+    end_clock('Removing Blacklisted Letters', start)
     push_to_txt(black_list_kick_path, kick_list)
     return filtered_list
 
@@ -228,7 +228,6 @@ def remove_by_near_miss(near_miss_list:list[list[str, list[int]]], viable_words:
     if not near_miss_list:
         bot_print('skipping near misses')
         return viable_words
-    
     for word in viable_words:
         kick = False
         for near_miss in near_miss_list:
@@ -257,7 +256,7 @@ def remove_by_near_miss(near_miss_list:list[list[str, list[int]]], viable_words:
     push_to_txt(near_miss_kick_path, kick_list)
     return filtered_list
 
-def filter_by_perfect_match(perfect_match_list:list[list[str, list[int]]], viable_words:list[str]):
+def remove_by_perfect_match(perfect_match_list:list[list[str, list[int]]], viable_words:list[str]):
     start = start_clock()
     filtered_list:list[str] = []
     kick_list:list[str] = []
@@ -340,7 +339,7 @@ def test_guess(test_word:str, test_score:list[int], letter_lists:list, viable_wo
         if value == 2:
             test_perfect = add_to_positional_list(test_perfect, test_word[i], i)
     viable_words = remove_by_blacklist_letters(test_black, viable_words)
-    viable_words = filter_by_perfect_match(test_perfect, viable_words)
+    viable_words = remove_by_perfect_match(test_perfect, viable_words)
     viable_words = remove_by_near_miss(test_near_miss, viable_words)
     remaining = len(viable_words)
     return remaining
@@ -448,7 +447,7 @@ def main():
         viable_words = remove_by_blacklist_letters(letter_lists[0], viable_words)
         push_to_txt(black_list_path, viable_words)
 
-        viable_words = filter_by_perfect_match(letter_lists[2], viable_words)
+        viable_words = remove_by_perfect_match(letter_lists[2], viable_words)
         push_to_txt(perfect_match_path, viable_words)
 
         viable_words = remove_by_near_miss(letter_lists[1], viable_words)
