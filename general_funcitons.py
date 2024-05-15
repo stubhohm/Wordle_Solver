@@ -1,9 +1,10 @@
 import time
 import json
 
-bot_on = False
+bot_on = True
 debug = False
-make_files = False
+make_files = True
+word_len = 5
 
 def bot_print(print_input):
     if bot_on:
@@ -11,7 +12,7 @@ def bot_print(print_input):
     print(print_input)
 
 def debug_print(print_input):
-    if debug:
+    if not debug:
         return
     print(print_input)
 
@@ -22,6 +23,29 @@ def end_clock(clock_name:str, start_time:float):
     end_time = time.time()
     elapsed_time = end_time - start_time
     debug_print(f"\nElapsed time for {clock_name} Function: {elapsed_time} seconds")
+
+def get_guess(valid_input:list[str]):
+    prompt = f'Guess a {word_len} letter word: '
+    word = input(prompt)
+    word.strip()
+    bot_print(word)
+    while not word in valid_input:
+        bot_print('You must put in a valid five letter word.\nPlease try again')
+        word = input(prompt)
+        word.strip()
+        bot_print(word)
+    return word
+
+def score_to_string(score:list[int]):
+    score_str = ''
+    for value in score:
+        if value == 0:
+            score_str += '0'
+        elif value == 1:
+            score_str += '1'
+        else: 
+            score_str += '2'
+    return score_str
 
 def push_to_txt(path:str, words:list[str]):
     # If you change toggle to true, you will make updated doc lists of viable words.
@@ -40,8 +64,16 @@ def push_to_json(path:str, dict:dict):
     if not make_files:
         return
     with open(path, 'w') as convert_file: 
-     convert_file.write(json.dumps(dict))
+        convert_file.write(json.dumps(dict))
 
+def pull_from_json(path):
+    try:
+        with open(path, 'r') as json_file:
+            loaded_dict = json.load(json_file)      
+    except FileNotFoundError:
+        loaded_dict = None
+    return loaded_dict    
+    
 def import_base_wordle_list(path:str):
     start = start_clock()
     with open(path, 'r') as wordle_text:

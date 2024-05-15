@@ -1,18 +1,19 @@
 import random
 from general_funcitons import import_base_wordle_list
-from general_funcitons import bot_print, debug_print
+from general_funcitons import bot_print, debug_print, get_guess
 from general_funcitons import start_clock, end_clock
 from general_funcitons import push_to_txt
-from general_funcitons import bot_on, debug, make_files
+from general_funcitons import bot_on, word_len
 from info_theory import run_info_theory
 
 MAX_GUESSES = 6 
-bot_loops = 10
+bot_loops = 100
 # This is how many remaining words before we switch guessing algos
 # 1000 Seems to be the sweet spot
 word_cap = 1000
 
-word_list_path:str = 'WordleList.txt'
+word_guess_path:str = 'WordleGuessList.txt'
+word_answer_path:str = 'WordleAnswerList.txt'
 perfect_match_path:str = 'After_Perfect_Matches.txt'
 black_list_path:str = 'After_Black_Lists.txt'
 near_miss_path:str = 'After_Near_Miss.txt'
@@ -21,21 +22,12 @@ black_list_kick_path:str = 'Kick_After_Black_Lists.txt'
 near_miss_kick_path:str = 'Kick_After_Near_Miss.txt'
 
 alphabet = [chr(ord('a') + i) for i in range(26)]
-word_len = 5
 colors = {
         'red': '\033[41m',  # Red background
         'green': '\033[48;5;28m',  # Green background
         'yellow': '\033[43m',  # Yellow background
         'reset': '\033[0m'  # Reset color and attributes
     }
-response_options:list[list[int]] = []
-for i in range(3):
-    for j in range(3):
-        for k in range(3):
-            for l in range(3):
-                for m in range(3):
-                    option = [i,j,k,l,m]
-                    response_options.append(option)
 
 def pick_wordle_word(word_list:list[str]):
     list_size = len(word_list)
@@ -264,18 +256,6 @@ def add_to_positional_list(positional_list:list, letter:str, index:int):
     positional_list.append(new_entry)   
     return positional_list
 
-def get_guess(valid_input:list[str]):
-    prompt = f'Guess a {word_len} letter word: '
-    word = input(prompt)
-    word.strip()
-    bot_print(word)
-    while not word in valid_input:
-        bot_print('You must put in a valid five letter word.\nPlease try again')
-        word = input(prompt)
-        word.strip()
-        bot_print(word)
-    return word
-
 def test_guess(test_word:str, test_score:list[int], letter_lists:list, viable_words:list[str]):
     test_black = letter_lists[0].copy()
     test_near_miss = letter_lists[1].copy()
@@ -344,14 +324,15 @@ def init_lists():
 
 def main():
     bot_print('starting game')
-    viable_words = import_base_wordle_list(word_list_path)
-    full_wordle_list = import_base_wordle_list(word_list_path)
+    viable_words = import_base_wordle_list(word_answer_path)
+    full_wordle_list = import_base_wordle_list(word_guess_path)
     letter_lists = init_lists()
     wordle_word:str = ''
-    wordle_word = pick_wordle_word(full_wordle_list)
+    wordle_word = pick_wordle_word(viable_words)
     initial_frequency_dict = calculate_letter_frequency(viable_words, None)
     guesses = 0
     playing = True
+    word_score = None
     while playing:
         # Gets the freqency of all letters in the list and weights it on inital list frequency
         frequncy_dict = calculate_letter_frequency(viable_words, initial_frequency_dict)
@@ -363,19 +344,18 @@ def main():
         else:    
             frq_word = pick_best_word(viable_words, frequncy_dict)
         debug_print(f'The actual word is {wordle_word}')
-        print(f'\nThe program suggests the word by frequency: {frq_word}')
-        info_word = None
-        if len(viable_words) < 5000:
-            info_word = run_info_theory(viable_words, full_wordle_list)
-            print(f'\nThe program suggests the word by info theory: {info_word}')
+        print(f'The program suggests the word by frequency: {frq_word}')
+        
+        info_word = run_info_theory(viable_words, full_wordle_list, guesses, word_score)
+        print(f'The program suggests the word by info theory: {info_word}')
+        print(wordle_word)
         # Ask the user for their guess, evaluate and score it
         if info_word:
             best_word = info_word
         else: 
             best_word = frq_word
+
         if bot_on:
-            if guesses == 0:
-                best_word = 'tares'
             guessed_word = best_word
         else:
             guessed_word = get_guess(full_wordle_list)
