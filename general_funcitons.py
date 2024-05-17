@@ -1,8 +1,8 @@
 import time
 import json
 
-bot_on = True
-debug = False
+bot_on = False
+debug = True
 make_files = True
 word_len = 5
 
@@ -81,3 +81,20 @@ def import_base_wordle_list(path:str):
         wordle_array = wordle_str.split()
     end_clock('Importing Wordle List', start)
     return wordle_array
+
+def score_guess(guess:str, target:str):
+    word_score = ['0', '0', '0', '0', '0']
+    guess_copy = list(guess)
+    target_copy = list(target)
+    for i, g_letter in enumerate(guess_copy):
+        for j, t_letter in enumerate(target_copy):
+            if g_letter == t_letter:
+                if i == j:
+                    word_score[i] = '2'
+                else:
+                    word_score[i] = '1'
+                target_copy[j] = '*'
+                guess_copy[i] = '*'
+                break
+        word_str = ''.join(word_score)
+    return word_str

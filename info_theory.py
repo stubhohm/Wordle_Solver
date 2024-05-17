@@ -3,7 +3,7 @@ import random
 from general_funcitons import import_base_wordle_list
 from general_funcitons import start_clock, end_clock, bot_print, debug_print
 from general_funcitons import push_to_txt, push_to_json, pull_from_json
-from general_funcitons import score_to_string
+from general_funcitons import score_to_string, score_guess
 
 word_answer_path:str = 'WordleAnswerList.txt'
 word_guess_path:str = 'WordleGuessList.txt'
@@ -91,23 +91,6 @@ def find_list_scores(viable_words:list[str], full_list:list[str], list = False):
         giant_dict[guess_word] = dict
     end_clock('hashing words', start)
     return giant_dict
-
-def score_guess(guess:str, target:str):
-    word_score = ['0', '0', '0', '0', '0']
-    guess_copy = list(guess)
-    target_copy = list(target)
-    for i, g_letter in enumerate(guess_copy):
-        for j, t_letter in enumerate(target_copy):
-            if g_letter == t_letter:
-                if i == j:
-                    word_score[i] = '2'
-                else:
-                    word_score[i] = '1'
-                target_copy[j] = '*'
-                guess_copy[i] = '*'
-                break
-        word_str = ''.join(word_score)
-    return word_str
 
 def get_best_list(bit_dict:dict):
     sorted_words = sorted(bit_dict.items(), key=lambda x: x[1], reverse=True)

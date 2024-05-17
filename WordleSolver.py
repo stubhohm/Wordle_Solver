@@ -1,6 +1,6 @@
 import random
 from general_funcitons import import_base_wordle_list
-from general_funcitons import bot_print, debug_print, get_guess
+from general_funcitons import bot_print, debug_print, get_guess, score_guess
 from general_funcitons import start_clock, end_clock
 from general_funcitons import push_to_txt
 from general_funcitons import bot_on, word_len
@@ -11,6 +11,7 @@ bot_loops = 100
 # This is how many remaining words before we switch guessing algos
 # 1000 Seems to be the sweet spot
 word_cap = 1000
+user_input = True
 
 word_guess_path:str = 'WordleGuessList.txt'
 word_answer_path:str = 'WordleAnswerList.txt'
@@ -279,20 +280,21 @@ def test_guess(test_word:str, test_score:list[int], letter_lists:list, viable_wo
 def evaluate_guess(best_word:str, actual_word:str, letter_lists:list):
     start = start_clock()
     values = [0,0,0,0,0]
-    for letter_index in range(word_len):
-        if not best_word[letter_index] in actual_word:
-            letter_lists[0] = add_to_black_list(letter_lists[0], best_word[letter_index])
-        elif not best_word[letter_index] == actual_word[letter_index]:
-            values[letter_index] = 1
+    if user_input:
+        score = input('What was the response?: ')
+    else:
+        score = score_guess(best_word, actual_word)
+    for position in range(word_len):
+        if score[position] == '0':
+            letter_lists[0] = add_to_black_list(letter_lists[0], best_word[position])
+        elif score[position] == '1':
             # Update the near miss list
             debug_print('adding to near misses')
-            letter_lists[1] = add_to_positional_list(letter_lists[1], best_word[letter_index], letter_index)
-            
+            letter_lists[1] = add_to_positional_list(letter_lists[1], best_word[position], position)  
         else:
             # Update the perfect match list
             debug_print('adding to perfect matches')
-            values[letter_index] = 2
-            letter_lists[2] = add_to_positional_list(letter_lists[2], best_word[letter_index], letter_index)
+            letter_lists[2] = add_to_positional_list(letter_lists[2], best_word[position], position)
     end_clock('Evaluating Word', start)
     '''
     print(f'Black List {letter_lists[0]}')
@@ -328,7 +330,7 @@ def main():
     full_wordle_list = import_base_wordle_list(word_guess_path)
     letter_lists = init_lists()
     wordle_word:str = ''
-    wordle_word = pick_wordle_word(viable_words)
+    wordle_word = 'pinch' #pick_wordle_word(viable_words)
     initial_frequency_dict = calculate_letter_frequency(viable_words, None)
     guesses = 0
     playing = True
