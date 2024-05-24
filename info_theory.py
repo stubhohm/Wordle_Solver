@@ -142,7 +142,6 @@ def main():
     bits_dict = get_bits_dict(answer_words, guess_words, 0)
     word = pick_best_word(bits_dict)
     best_list = get_best_list(bits_dict)
-    print(word)
     if not update_json:
         push_to_json(json_scores, bits_dict)
     push_to_json(json_best, best_list)
@@ -164,7 +163,6 @@ def evaluate_second_pick_best_words():
         word_list = second_best_lists[word]
         for response in word_list.keys():
             list = word_list[response]
-            print(len(list))
             word = run_info_theory(list, guess_words, 1)
             word_list[response] = word
         push_to_json('second_pick_word_table.json', second_best_lists)

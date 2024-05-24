@@ -2,7 +2,7 @@ import time
 import json
 
 bot_on = False
-debug = True
+debug = False
 make_files = True
 word_len = 5
 
@@ -37,6 +37,8 @@ def get_guess(valid_input:list[str]):
     return word
 
 def score_to_string(score:list[int]):
+    if type(score) == str:
+        return score
     score_str = ''
     for value in score:
         if value == 0:

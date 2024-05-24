@@ -11,7 +11,7 @@ bot_loops = 100
 # This is how many remaining words before we switch guessing algos
 # 1000 Seems to be the sweet spot
 word_cap = 1000
-user_input = True
+user_input = False
 
 word_guess_path:str = 'WordleGuessList.txt'
 word_answer_path:str = 'WordleAnswerList.txt'
@@ -108,8 +108,12 @@ def pick_best_word(viable_words:list[str], frequency_dict:dict):
         if word_value == best_word_value:
             best_words.append(word)
     viable_word_count = len(best_words)
-    random_int = random.randrange(0,viable_word_count)
-    best_word = best_words[random_int]
+    try:
+        random_int = random.randrange(0,viable_word_count)
+        best_word = best_words[random_int]
+    except Exception as e:
+        print(f'error was {e}')
+        best_word = None
     end_clock('Picking Best Word', start)
     debug_print(f'Best words {best_words}')
     return best_word
@@ -279,28 +283,33 @@ def test_guess(test_word:str, test_score:list[int], letter_lists:list, viable_wo
 
 def evaluate_guess(best_word:str, actual_word:str, letter_lists:list):
     start = start_clock()
-    values = [0,0,0,0,0]
+    evaled = ''
     if user_input:
         score = input('What was the response?: ')
     else:
         score = score_guess(best_word, actual_word)
     for position in range(word_len):
-        if score[position] == '0':
-            letter_lists[0] = add_to_black_list(letter_lists[0], best_word[position])
+        if score[position] == '2':
+            # Update the perfect match list
+            debug_print('adding to perfect matches')
+            letter_lists[2] = add_to_positional_list(letter_lists[2], best_word[position], position)
         elif score[position] == '1':
             # Update the near miss list
             debug_print('adding to near misses')
             letter_lists[1] = add_to_positional_list(letter_lists[1], best_word[position], position)  
         else:
-            # Update the perfect match list
-            debug_print('adding to perfect matches')
-            letter_lists[2] = add_to_positional_list(letter_lists[2], best_word[position], position)
+            skip = False
+            for entry in letter_lists[2]:
+                if entry[0] == actual_word[position]:
+                    skip = True
+            for entry in letter_lists[1]:
+                if entry[0] == actual_word[position]:
+                    skip = True
+            if not skip:
+                letter_lists[0] = add_to_black_list(letter_lists[0], best_word[position])
+        evaled += best_word[position]
     end_clock('Evaluating Word', start)
-    '''
-    print(f'Black List {letter_lists[0]}')
-    print(f'near misses {letter_lists[1]}')
-    print(f'Perfect matches {letter_lists[2]}')'''
-    return letter_lists, values
+    return letter_lists, score
 
 def display_word_score(word:str, word_score:list[int]):
     start = start_clock()
@@ -330,7 +339,7 @@ def main():
     full_wordle_list = import_base_wordle_list(word_guess_path)
     letter_lists = init_lists()
     wordle_word:str = ''
-    wordle_word = 'pinch' #pick_wordle_word(viable_words)
+    wordle_word = 'piper'#pick_wordle_word(viable_words)
     initial_frequency_dict = calculate_letter_frequency(viable_words, None)
     guesses = 0
     playing = True
@@ -350,13 +359,11 @@ def main():
         
         info_word = run_info_theory(viable_words, full_wordle_list, guesses, word_score)
         print(f'The program suggests the word by info theory: {info_word}')
-        print(wordle_word)
         # Ask the user for their guess, evaluate and score it
         if info_word:
             best_word = info_word
         else: 
             best_word = frq_word
-
         if bot_on:
             guessed_word = best_word
         else:
@@ -374,12 +381,23 @@ def main():
         viable_words = remove_by_near_miss(letter_lists[1], viable_words)
         push_to_txt(near_miss_path, viable_words)
 
+        print(letter_lists[0])
+        print(letter_lists[1])
+        print(letter_lists[2])
+        
+        if not frq_word:
+            print(letter_lists[0])
+            print(letter_lists[1])
+            print(letter_lists[2])
+            print(wordle_word)
+            return False, False, wordle_word
         guesses += 1
         if guesses > MAX_GUESSES:
             playing = False
 
         if guessed_word == wordle_word:
             playing = False
+
     win = False
     if guesses > MAX_GUESSES:
         bot_print('You Lost')
@@ -404,7 +422,7 @@ def show_stats(ratio:list[int,bool], loops: int, missed_words:list[str]):
     #print(f'The missed words were:{missed_words}.')
 
 if __name__ == '__main__':
-    print('starting program')
+    debug_print('starting program')
     loops = bot_loops
     loop = 0
     ratio:list[int,bool] = []
