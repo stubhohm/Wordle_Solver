@@ -11,7 +11,7 @@ bot_loops = 100
 # This is how many remaining words before we switch guessing algos
 # 1000 Seems to be the sweet spot
 word_cap = 1000
-user_input = False
+user_input = True
 
 word_guess_path:str = 'WordleGuessList.txt'
 word_answer_path:str = 'WordleAnswerList.txt'
