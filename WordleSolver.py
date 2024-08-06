@@ -52,7 +52,6 @@ def calculate_letter_frequency(viable_words:list[str], initial_weight):
         may favor. 
 
     '''
-    
     # Gets the value of how often a letter is in a given place
     start = start_clock()
     frequency_dict:dict = {}
@@ -339,7 +338,7 @@ def main():
     full_wordle_list = import_base_wordle_list(word_guess_path)
     letter_lists = init_lists()
     wordle_word:str = ''
-    wordle_word = 'piper'#pick_wordle_word(viable_words)
+    wordle_word = pick_wordle_word(viable_words)
     initial_frequency_dict = calculate_letter_frequency(viable_words, None)
     guesses = 0
     playing = True

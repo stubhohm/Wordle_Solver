@@ -1,10 +1,12 @@
 import time
 import json
+import os
 
 bot_on = False
 debug = False
 make_files = True
 word_len = 5
+root_dir = path = 'Wordle_Solver'
 
 def bot_print(print_input):
     if bot_on:
@@ -57,6 +59,7 @@ def push_to_txt(path:str, words:list[str]):
     if not make_files:
         return
     string = '\n'.join(words)
+    path = os.path.join(root_dir, path)
     with open(path, 'w') as file:
         file.write(string)
 
@@ -65,19 +68,24 @@ def push_to_json(path:str, dict:dict):
         return
     if not make_files:
         return
+    path = os.path.join(root_dir, path)
     with open(path, 'w') as convert_file: 
         convert_file.write(json.dumps(dict))
 
 def pull_from_json(path):
     try:
+        path = os.path.join(root_dir, path)
         with open(path, 'r') as json_file:
             loaded_dict = json.load(json_file)      
     except FileNotFoundError:
         loaded_dict = None
     return loaded_dict    
     
-def import_base_wordle_list(path:str):
+def import_base_wordle_list(path:str, new_root:str):
+    if new_root:
+        root_dir = new_root
     start = start_clock()
+    path = os.path.join(root_dir, path)
     with open(path, 'r') as wordle_text:
         wordle_str = wordle_text.read()
         wordle_array = wordle_str.split()
